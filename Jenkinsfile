@@ -1,18 +1,14 @@
 pipeline {
-	agent {
-		docker {
-			image 'node:18'
-			}
-		}
+	agent any
 	stages {
-		stage('Install Dependencies') {
+		stage('Build Docker Image') {
 		steps {
-			sh 'npm install'
+			sh 'docker build -t my-ci-app:latest .'
 			}
 		}
-		stage('Run Application') {
+		stage('Run Container') {
 		steps {
-			sh 'node app.js & sleep 5'
+			sh 'docker run -d -p 3000:3000 my-ci-app:latest'
 			}
 		}
 		stage('Test Output') {
