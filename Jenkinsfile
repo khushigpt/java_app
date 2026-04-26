@@ -1,42 +1,46 @@
 pipeline {
 	agent any
+	environment {
+		DOCKER_IMAGE="kubekhushigpt/ci-cd-app:latest"
+		}
 	stages {
 		stage('Build Docker Image') {
 		steps {
-			sh 'docker build -t my-ci-app:latest .'
+			sh 'docker build -t $DOCKER_IMAGE .'
 			}
+		}
+		stage('Login to Docker Hub') {
+		steps {
+			withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+			sh 'echo $PASS | docker login -u $USER --password-stdin'
+			}
+			}
+		}
+		stage('Push Image') {
+		steps {
+		sh 'docker push $DOCKER_IMAGE'
+		}
 		}
 		stage('Run Container') {
 		steps {
 			sh 'docker rm -f my-container || true'
-			sh 'docker run -d --name my-container -p 3000:3000 my-ci-app:latest'
+			sh 'docker run -d --name my-container -p 3000:3000 $DOCKER_IMAGE'
 			}
 		}
 		stage('Test Output') {
 			steps {
-				sh '''
-				echo "Checking if container is running"
-				docker ps
-				echo "Application logs:"
-				docker logs my-container
-
-		                echo "Waiting for app to be ready..."
-
-                		for i in {1..10}; do
-		                    docker exec my-container curl -s http://localhost:3000 && exit 0
-                	    	echo "App not ready yet... retrying"
-                    		sleep 2
-                		done
-
-                		echo "App failed to respond"
-                		exit 1
-                		'''
-
+			sh '''
+                	for i in {1..10}; do
+                    	docker exec my-container curl -s http://localhost:3000 && exit 0
+                    	sleep 2
+                	done
+                	exit 1
+                	'''
 			}
 		}
 		stage('Cleanup') {
 		steps {
-		sh 'docker rm -f my-contaier || true'
+		sh 'docker rm -f my-container || true'
 		}
 		}
 	}
