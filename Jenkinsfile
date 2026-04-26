@@ -14,10 +14,30 @@ pipeline {
 		}
 		stage('Test Output') {
 			steps {
-				sh 'sleep 10'
-				sh 'docker logs my-container'
-				sh 'curl -s localhost:3000'
+				sh '''
+				echo "Checking if container is running"
+				docker ps
+				echo "Application logs:"
+				docker logs my-container
+
+		                echo "Waiting for app to be ready..."
+
+                		for i in {1..10}; do
+		                    docker exec my-container curl -s http://localhost:3000 && exit 0
+                	    	echo "App not ready yet... retrying"
+                    		sleep 2
+                		done
+
+                		echo "App failed to respond"
+                		exit 1
+                		'''
+
 			}
+		}
+		stage('Cleanup') {
+		steps {
+		sh 'docker rm -f my-contaier || true'
+		}
 		}
 	}
 }
