@@ -9,6 +9,11 @@ pipeline {
         	sh 'cat app.js'
     	}
 		}
+		stage('Checkout Code') {
+    steps {
+        git branch: 'main', url: 'https://github.com/khushigpt/java_app.git'
+    }
+}
 		stage('Build Docker Image') {
 		steps {
 			sh 'docker build -t $DOCKER_IMAGE .'
