@@ -4,6 +4,11 @@ pipeline {
 		DOCKER_IMAGE="kubekhushigpt/ci-cd-app:latest"
 		}
 	stages {
+		stage('Debug Code') {
+    	steps {
+        	sh 'cat app.js'
+    	}
+		}
 		stage('Build Docker Image') {
 		steps {
 			sh 'docker build -t $DOCKER_IMAGE .'
