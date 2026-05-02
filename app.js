@@ -1,6 +1,6 @@
 // app.js
 const http = require('http');
-
+const app = express();
 const server = http.createServer((req, res) => {
     res.write("Hello from CI/CD Pipeline 🚀- Version 2");
     res.end();
