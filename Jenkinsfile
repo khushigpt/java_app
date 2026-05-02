@@ -37,16 +37,18 @@ pipeline {
 			sh 'docker run -d --name my-container -p 3000:3000 $DOCKER_IMAGE'
 			}
 		}
-		stage('Test Output') {
-			steps {
-			sh '''
-                	for i in {1..10}; do
-                    	docker exec my-container curl -s http://localhost:3000 && exit 0
-                    	sleep 2
-                	done
-                	exit 1
-                	'''
-			}
+		stage('Verify Deployment') {
+    		steps {
+        		sh '''
+        		echo "Waiting for pod to be ready..."
+        		sleep 10
+
+        		POD=$(kubectl get pods -l app=ci-cd-app -o jsonpath="{.items[0].metadata.name}")
+        		echo "Testing pod: $POD"
+
+        		kubectl exec $POD -- curl -s http://localhost:3000
+        		'''
+    		}
 		}
 		stage('Cleanup') {
 		steps {
