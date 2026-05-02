@@ -1,54 +1,70 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ci-cd-app
-spec:
-  replicas: 2
+pipeline {
+    agent any
 
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    environment {
+        DOCKER_IMAGE = "kubekhushigpt/ci-cd-app:latest"
+        KUBECONFIG = "/var/jenkins_home/.kube/config"
+    }
 
-  selector:
-    matchLabels:
-      app: ci-cd-app
+    stages {
 
-  template:
-    metadata:
-      labels:
-        app: ci-cd-app
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
 
-    spec:
-      containers:
-      - name: ci-cd-app
-        image: kubekhushigpt/ci-cd-app:latest
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/khushigpt/java_app.git'
+            }
+        }
 
-        ports:
-        - containerPort: 3000
+        stage('Debug Code') {
+            steps {
+                sh 'echo "Showing app.js content:"'
+                sh 'cat app.js || true'
+            }
+        }
 
-        # 🔥 Startup probe (prevents early kill)
-        startupProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          failureThreshold: 10
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build --no-cache -t $DOCKER_IMAGE .'
+            }
+        }
 
-        # ✅ Readiness probe (traffic control)
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh 'echo $PASS | docker login -u $USER --password-stdin'
+                }
+            }
+        }
 
-        # ✅ Liveness probe (self-healing)
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 20
-          periodSeconds: 10
+        stage('Push Image') {
+            steps {
+                sh 'docker push $DOCKER_IMAGE'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                export KUBECONFIG=/var/jenkins_home/.kube/config
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                export KUBECONFIG=/var/jenkins_home/.kube/config
+                echo "Checking pods..."
+                kubectl get pods
+                '''
+            }
+        }
+    }
+}
